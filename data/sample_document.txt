@@ -1,21 +1,16 @@
 
 CodeNova AI/ML Internship Project Guide
 
-The internship focuses on practical machine learning projects using Python.
-
-Project 1 focuses on exploratory data analysis using a public dataset.
-Project 2 focuses on building an SMS spam classifier using natural language processing.
-Project 3 focuses on building a house price prediction model using regression.
-
-Project 4 is a Document Question-Answering Assistant.
-
 The programming language used in Project 4 is Python.
-The document retrieval method is TF-IDF.
-The similarity measure used to rank passages is cosine similarity.
-The assistant splits documents into small passages.
-The assistant retrieves relevant passages and displays their source filenames and passage numbers.
-The assistant returns extracted text from the retrieved passage instead of generating new facts.
-The assistant runs locally using free, open-source tools without paid API dependencies.
 
-If the answer is not available in the provided documents, the assistant returns:
-Information not found in provided document.
+The document retrieval method is TF-IDF.
+
+The similarity measure used to rank passages is cosine similarity.
+
+The assistant splits documents into small passages.
+
+The assistant retrieves relevant passages and displays their source filenames and passage numbers.
+
+The assistant returns extracted text from the retrieved passage instead of generating new facts.
+
+The assistant runs locally using free, open-source tools without paid API dependencies.

@@ -2,37 +2,26 @@
 from pathlib import Path
 import re
 
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
 FALLBACK = "Information not found in provided document"
-
-STOP_WORDS = {
-    "a", "an", "the", "is", "are", "was", "were", "be", "been",
-    "being", "what", "which", "who", "when", "where", "why", "how",
-    "does", "do", "did", "use", "uses", "used", "of", "in", "on",
-    "for", "to", "and", "or", "with", "about", "it", "this", "that",
-    "me", "tell", "give", "please"
-}
-
-
-def tokenize(text):
-    """Convert text into lowercase searchable words."""
-    return re.findall(r"[a-z0-9]+", text.lower())
 
 
 def chunk_text(text, max_words=60):
-    """Split a document into readable passages."""
+    """Keep blank-line-separated paragraphs as separate passages."""
     passages = []
 
     for paragraph in re.split(r"\n\s*\n", text.strip()):
         paragraph = paragraph.strip()
-
         if not paragraph:
             continue
 
         words = paragraph.split()
 
+        # Split only oversized paragraphs into smaller passages.
         for start in range(0, len(words), max_words):
             passage = " ".join(words[start:start + max_words]).strip()
-
             if passage:
                 passages.append(passage)
 
@@ -41,10 +30,6 @@ def chunk_text(text, max_words=60):
 
 class DocumentQA:
     def __init__(self, documents):
-        """
-        documents: dictionary such as
-        {"sample_document.txt": "Document contents here"}
-        """
         self.passages = []
 
         for filename, text in documents.items():
@@ -55,9 +40,21 @@ class DocumentQA:
                     "text": passage
                 })
 
+        self.vectorizer = None
+        self.document_matrix = None
+
+        if self.passages:
+            self.vectorizer = TfidfVectorizer(
+                lowercase=True,
+                stop_words="english",
+                ngram_range=(1, 2)
+            )
+            self.document_matrix = self.vectorizer.fit_transform(
+                [item["text"] for item in self.passages]
+            )
+
     @classmethod
     def from_folder(cls, folder="data"):
-        """Load all .txt documents from a folder."""
         folder_path = Path(folder)
 
         if not folder_path.exists():
@@ -78,79 +75,36 @@ class DocumentQA:
 
         return cls(documents)
 
-   
     def answer(self, question):
         if not question or not question.strip() or not self.passages:
             return {"answer": FALLBACK, "sources": []}
 
-        q = question.lower()
+        query_matrix = self.vectorizer.transform([question])
 
-        # Return concise answers for known facts when supported by a document.
-        answer_rules = [
-    (
-        ["programming language", "language used"],
-        "the programming language used in project 4 is python",
-        "The programming language used in Project 4 is Python."
-    ),
-    (
-        ["retrieval method", "document retrieval"],
-        "the document retrieval method is tf idf",
-        "The document retrieval method is TF-IDF."
-    ),
-    (
-        ["similarity measure", "similarity method"],
-        "the similarity measure used to rank passages is cosine similarity",
-        "The similarity measure used to rank passages is cosine similarity."
-    ),
-]
-
-        for question_terms, required_text, concise_answer in answer_rules:
-            if any(term in q for term in question_terms):
-                for item in self.passages:
-                    normalized_text = " ".join(tokenize(item["text"]))
-                    normalized_required = " ".join(tokenize(required_text))
-                    if normalized_required in normalized_text:
-                        return {
-                            "answer": concise_answer,
-                            "sources": [{
-                                "source": item["source"],
-                                "passage_number": item["passage_number"],
-                                "text": item["text"]
-                            }]
-                        }
-
-        # General retrieval for questions not covered by the rules.
-        question_words = {
-            word for word in tokenize(question)
-            if word not in STOP_WORDS
-        }
-
-        if not question_words:
+        if query_matrix.nnz == 0:
             return {"answer": FALLBACK, "sources": []}
 
-        best_passage = None
-        best_score = 0.0
+        scores = cosine_similarity(
+            query_matrix, self.document_matrix
+        ).ravel()
 
-        for item in self.passages:
-            passage_words = set(tokenize(item["text"]))
-            score = len(question_words & passage_words) / len(question_words)
+        best_index = int(scores.argmax())
+        best_score = float(scores[best_index])
 
-            if score > best_score:
-                best_score = score
-                best_passage = item
-
-        if best_passage is None or best_score < 0.25:
+        # Reject questions that do not match the documents sufficiently.
+        if best_score < 0.10:
             return {"answer": FALLBACK, "sources": []}
+
+        passage = self.passages[best_index]
 
         return {
-            "answer": best_passage["text"],
+            "answer": passage["text"],
             "sources": [{
-                "source": best_passage["source"],
-                "passage_number": best_passage["passage_number"],
-                "text": best_passage["text"]
+                "source": passage["source"],
+                "passage_number": passage["passage_number"],
+                "text": passage["text"]
             }]
         }
-
 
 
 def main():
@@ -160,7 +114,7 @@ def main():
         print(f"Error: {error}")
         return
 
-    print("Document Question-Answering Assistant")
+    print("Document Question-Answering Assistant (TF-IDF)")
     print("Type 'exit' to quit.\n")
 
     while True:
@@ -171,14 +125,11 @@ def main():
             break
 
         result = assistant.answer(question)
-        answer = result["answer"]
-        sources = result["sources"]
+        print(f"\nAnswer: {result['answer']}")
 
-        print(f"\nAnswer: {answer}")
-
-        if sources:
+        if result["sources"]:
             print("\nSources:")
-            for source in sources:
+            for source in result["sources"]:
                 print(
                     f"- {source['source']}, "
                     f"passage {source['passage_number']}"

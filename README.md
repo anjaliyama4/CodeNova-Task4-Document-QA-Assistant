@@ -138,3 +138,6 @@ The test suite covers relevant answers, tool-related questions, empty questions,
 **Project:** Document Question-Answering Assistant
 
 This project demonstrates a local document retrieval workflow using TF-IDF, cosine similarity, source citations, and unsupported-question handling.
+## Execution Screenshot
+
+![Task 4 Document QA Assistant Execution](screenshot/task4-execution.png)

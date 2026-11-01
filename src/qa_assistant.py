@@ -2,42 +2,61 @@
 from pathlib import Path
 import re
 
+from sentence_transformers import SentenceTransformer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-
 FALLBACK = "Information not found in provided document"
 
 
 
-def chunk_text(text, max_words=60):
-    """Create structure-aware chunks using paragraph and sentence boundaries."""
-    passages = []
+_embedding_model = None
 
+
+def chunk_text(text, max_words=60, similarity_threshold=0.30):
+    """Group adjacent sentences using semantic similarity and paragraph boundaries."""
+    global _embedding_model
+
+    if _embedding_model is None:
+        _embedding_model = SentenceTransformer(
+            "sentence-transformers/all-MiniLM-L6-v2"
+        )
+
+    passages = []
     paragraphs = re.split(r"\n\s*\n", text.strip())
 
     for paragraph in paragraphs:
-        paragraph = paragraph.strip()
-        if not paragraph:
+        sentences = [
+            sentence.strip()
+            for sentence in re.split(r"(?<=[.!?])\s+", paragraph.strip())
+            if sentence.strip()
+        ]
+
+        if not sentences:
             continue
 
-        sentences = re.split(r"(?<=[.!?])\s+", paragraph)
-        current_chunk = []
-        current_words = 0
+        embeddings = _embedding_model.encode(sentences)
+        current_chunk = [sentences[0]]
+        current_words = len(sentences[0].split())
 
-        for sentence in sentences:
-            sentence = sentence.strip()
-            if not sentence:
-                continue
-
+        for index in range(1, len(sentences)):
+            sentence = sentences[index]
             sentence_words = len(sentence.split())
 
-            if current_chunk and current_words + sentence_words > max_words:
-                passages.append(" ".join(current_chunk))
-                current_chunk = []
-                current_words = 0
+            similarity = cosine_similarity(
+                [embeddings[index - 1]],
+                [embeddings[index]]
+            )[0][0]
 
-            current_chunk.append(sentence)
-            current_words += sentence_words
+            if (
+                similarity >= similarity_threshold
+                and current_words + sentence_words <= max_words
+            ):
+                current_chunk.append(sentence)
+                current_words += sentence_words
+            else:
+                passages.append(" ".join(current_chunk))
+                current_chunk = [sentence]
+                current_words = sentence_words
 
         if current_chunk:
             passages.append(" ".join(current_chunk))

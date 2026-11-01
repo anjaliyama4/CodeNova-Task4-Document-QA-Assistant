@@ -11,7 +11,7 @@ The assistant runs locally using free, open-source tools and does not require pa
 ## Features
 
 - Loads local `.txt` documents from the `data/` folder.
-- Splits documents into smaller passages.
+- Uses paragraph boundaries and sentence boundaries to create structured text passages, with a maximum target of 60 words per passage.
 - Uses **TF-IDF vectorization** to represent text.
 - Ranks passages using **cosine similarity**.
 - Returns relevant text from the retrieved passage.
@@ -111,7 +111,7 @@ The test suite covers relevant answers, tool-related questions, empty questions,
 ## How It Works
 
 1. **Document ingestion:** Reads text documents from the local `data/` directory.
-2. **Text chunking:** Splits document content into passages.
+2. **Text chunking:** Uses paragraph-aware and sentence-boundary-based chunking to group document text into passages, targeting a maximum of 60 words per passage.
 3. **Question processing:** Converts the question into a TF-IDF vector.
 4. **Passage retrieval:** Uses cosine similarity to rank document passages by relevance.
 5. **Answer selection:** Returns text from the most relevant passage rather than inventing unsupported facts.

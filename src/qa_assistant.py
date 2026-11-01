@@ -8,24 +8,42 @@ from sklearn.metrics.pairwise import cosine_similarity
 FALLBACK = "Information not found in provided document"
 
 
+
 def chunk_text(text, max_words=60):
-    """Keep blank-line-separated paragraphs as separate passages."""
+    """Create structure-aware chunks using paragraph and sentence boundaries."""
     passages = []
 
-    for paragraph in re.split(r"\n\s*\n", text.strip()):
+    paragraphs = re.split(r"\n\s*\n", text.strip())
+
+    for paragraph in paragraphs:
         paragraph = paragraph.strip()
         if not paragraph:
             continue
 
-        words = paragraph.split()
+        sentences = re.split(r"(?<=[.!?])\s+", paragraph)
+        current_chunk = []
+        current_words = 0
 
-        # Split only oversized paragraphs into smaller passages.
-        for start in range(0, len(words), max_words):
-            passage = " ".join(words[start:start + max_words]).strip()
-            if passage:
-                passages.append(passage)
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+
+            sentence_words = len(sentence.split())
+
+            if current_chunk and current_words + sentence_words > max_words:
+                passages.append(" ".join(current_chunk))
+                current_chunk = []
+                current_words = 0
+
+            current_chunk.append(sentence)
+            current_words += sentence_words
+
+        if current_chunk:
+            passages.append(" ".join(current_chunk))
 
     return passages
+
 
 
 class DocumentQA:
